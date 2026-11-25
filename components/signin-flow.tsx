@@ -31,9 +31,9 @@ type Done = {
 const CUSTOM_BRANCH = "__custom__";
 
 const MEAL_OPTIONS = [
-  { id: "meat", label: "葷", icon: "🍖" },
-  { id: "veg", label: "素", icon: "🥬" },
-  { id: "none", label: "不用餐", icon: "☺️" },
+  { id: "meat", label: "🥩 葷" },
+  { id: "veg", label: "🥕 素" },
+  { id: "none", label: "🙅‍♂️ 不用餐" },
 ] as const;
 
 const selectClassName =
@@ -532,9 +532,6 @@ export function SigninFlow() {
                   }`}
                   onClick={() => setMeal(option.id)}
                 >
-                  <span className="block text-2xl" aria-hidden>
-                    {option.icon}
-                  </span>
                   {option.label}
                 </button>
               ))}
