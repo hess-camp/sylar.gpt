@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SignaturePad } from "@/components/signature-pad";
@@ -30,6 +30,47 @@ const MEAL_OPTIONS = [
   { id: "veg", label: "素" },
   { id: "none", label: "不用餐" },
 ] as const;
+
+const selectClassName =
+  "h-14 w-full appearance-none rounded-2xl border border-border bg-card px-4 pr-12 text-base font-medium shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground";
+
+function SelectField({
+  id,
+  label,
+  value,
+  disabled,
+  onChange,
+  children,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label htmlFor={id} className="grid gap-2 text-base font-medium">
+      {label}
+      <span className="relative block">
+        <select
+          id={id}
+          value={value}
+          disabled={disabled}
+          autoComplete="off"
+          onChange={(event) => onChange(event.target.value)}
+          className={selectClassName}
+        >
+          {children}
+        </select>
+        <ChevronDown
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-4 size-5 -translate-y-1/2 text-muted-foreground"
+        />
+      </span>
+    </label>
+  );
+}
 
 export function SigninFlow() {
   const [regions, setRegions] = useState<Region[] | null>(null);
@@ -82,15 +123,60 @@ export function SigninFlow() {
     void load();
   }
 
-  function choosePerson(next: Person) {
-    if (next.signed) {
+  function selectRegion(name: string) {
+    const next = regions?.find((item) => item.name === name) ?? null;
+    setNotice("");
+    setError("");
+    setRegion(next);
+    setBranch(null);
+    setPerson(null);
+  }
+
+  function selectBranch(name: string) {
+    const next = region?.branches.find((item) => item.name === name) ?? null;
+    setNotice("");
+    setError("");
+    setBranch(next);
+    setPerson(null);
+  }
+
+  function selectPerson(id: string) {
+    const next = branch?.people.find((item) => item.id === id) ?? null;
+    setError("");
+    setWalkIn(false);
+    if (next?.signed) {
+      setPerson(null);
       setNotice(`${next.displayName} 已簽到${next.signedAt ? `（${next.signedAt}）` : ""}`);
       return;
     }
     setNotice("");
     setPerson(next);
+  }
+
+  function continueToSignature() {
+    if (!person || person.signed) {
+      if (person?.signed) {
+        setNotice(`${person.displayName} 已簽到${person.signedAt ? `（${person.signedAt}）` : ""}`);
+      }
+      return;
+    }
+    setNotice("");
+    setError("");
     setWalkIn(false);
     setStep("signature");
+  }
+
+  function startWalkIn() {
+    if (!region || !branch) {
+      setError("請先選擇區域與分校");
+      return;
+    }
+    setError("");
+    setNotice("");
+    setPerson(null);
+    setWalkIn(true);
+    setNameZh("");
+    setNameEn("");
   }
 
   async function submit() {
@@ -122,19 +208,16 @@ export function SigninFlow() {
     }
   }
 
-  const heading = !region
-    ? "請選擇區域"
-    : !branch
-      ? region.name
-      : step === "signature"
-        ? "請簽名"
-        : step === "meal"
-          ? "請選擇便當"
-          : step === "done"
-            ? "簽到完成"
-            : walkIn
-              ? "當場報名"
-              : `${region.name} · ${branch.name}`;
+  const heading =
+    step === "signature"
+      ? "請簽名"
+      : step === "meal"
+        ? "請選擇便當"
+        : step === "done"
+          ? "簽到完成"
+          : walkIn
+            ? "當場報名"
+            : "請選擇簽到人員";
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-8 pt-5">
@@ -147,21 +230,14 @@ export function SigninFlow() {
       <section className="mt-4 flex flex-1 flex-col">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{heading}</h2>
-          {step === "pick" && (region || branch || walkIn) ? (
+          {step === "pick" && walkIn ? (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 setNotice("");
-                if (walkIn) {
-                  setWalkIn(false);
-                  return;
-                }
-                if (branch) {
-                  setBranch(null);
-                  return;
-                }
-                setRegion(null);
+                setError("");
+                setWalkIn(false);
               }}
             >
               返回
@@ -192,78 +268,65 @@ export function SigninFlow() {
           <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>
         )}
 
-        {!loading && regions && step === "pick" && !region && (
-          <div className="grid gap-2">
+        {!loading && regions && step === "pick" && !walkIn && (
+          <div className="grid gap-4">
             {regions.length === 0 ? (
               <p className="text-muted-foreground">目前沒有報名名單。請由後台匯入 CSV。</p>
             ) : (
-              regions.map((item) => (
-                <button
-                  key={item.name}
-                  type="button"
-                  className="min-h-14 rounded-2xl border border-border bg-card px-4 text-left text-base font-medium shadow-sm active:bg-muted"
-                  onClick={() => {
-                    setNotice("");
-                    setRegion(item);
-                  }}
+              <>
+                <SelectField id="region" label="區域" value={region?.name ?? ""} onChange={selectRegion}>
+                  <option value="">請選擇區域</option>
+                  {regions.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </SelectField>
+
+                <SelectField
+                  id="branch"
+                  label="分校"
+                  value={branch?.name ?? ""}
+                  disabled={!region}
+                  onChange={selectBranch}
                 >
-                  {item.name}
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    {item.branches.length} 間分校
-                  </span>
-                </button>
-              ))
+                  <option value="">{region ? "請選擇分校" : "請先選擇區域"}</option>
+                  {region?.branches.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </SelectField>
+
+                <SelectField
+                  id="person"
+                  label="姓名"
+                  value={person?.id ?? ""}
+                  disabled={!branch}
+                  onChange={selectPerson}
+                >
+                  <option value="">{branch ? "請選擇姓名" : "請先選擇分校"}</option>
+                  {branch?.people.map((item) => (
+                    <option key={item.id} value={item.id} disabled={item.signed}>
+                      {item.signed ? `${item.displayName}（已簽到）` : item.displayName}
+                    </option>
+                  ))}
+                </SelectField>
+
+                <Button
+                  type="button"
+                  size="lg"
+                  className="w-full"
+                  disabled={!person || person.signed}
+                  onClick={continueToSignature}
+                >
+                  下一步，簽名
+                </Button>
+                <Button type="button" variant="secondary" size="lg" className="w-full" onClick={startWalkIn}>
+                  當場報名
+                </Button>
+              </>
             )}
-          </div>
-        )}
-
-        {!loading && step === "pick" && region && !branch && (
-          <div className="grid gap-2">
-            <p className="text-sm text-muted-foreground">請選擇分校</p>
-            {region.branches.map((item) => (
-              <button
-                key={item.name}
-                type="button"
-                className="min-h-14 rounded-2xl border border-border bg-card px-4 text-left text-base font-medium shadow-sm active:bg-muted"
-                onClick={() => {
-                  setNotice("");
-                  setBranch(item);
-                }}
-              >
-                {item.name}
-                <span className="ml-2 text-sm font-normal text-muted-foreground">{item.people.length} 人</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!loading && step === "pick" && region && branch && !walkIn && (
-          <div className="grid gap-2">
-            <p className="text-sm text-muted-foreground">請點選您的姓名</p>
-            {branch.people.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 text-left shadow-sm active:bg-muted"
-                onClick={() => choosePerson(item)}
-              >
-                <span className="text-base font-medium">{item.displayName}</span>
-                {item.signed ? <Badge>已簽到</Badge> : null}
-              </button>
-            ))}
-            <Button
-              variant="secondary"
-              size="lg"
-              className="mt-2"
-              onClick={() => {
-                setNotice("");
-                setWalkIn(true);
-                setNameZh("");
-                setNameEn("");
-              }}
-            >
-              當場報名
-            </Button>
           </div>
         )}
 

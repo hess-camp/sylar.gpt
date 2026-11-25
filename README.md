@@ -42,4 +42,4 @@ python3 scripts/extract_pdf.py path/to/名單.pdf
 
 ## PDF
 
-「下載簽到記錄」是唯一的匯出。A4 橫式，依區域分組，欄寬 100／150／200／260／其餘 pt，列高 80 pt。中文字型是完整的 Noto Sans CJK TC，以 `subset: false` 嵌入，避免 Chrome 內建 PDF 檢視器吃掉中文。
+「下載簽到記錄」是唯一的匯出。A4 橫式，每個區域從新的一頁開始並印出區域標題，每頁剛好 10 人。欄位為區域、分校、姓名、簽名、便當，欄寬 100／150／200／260／其餘 pt。中文字型是完整的 Noto Sans CJK TC，以 `subset: false` 嵌入，避免 Chrome 內建 PDF 檢視器吃掉中文。
