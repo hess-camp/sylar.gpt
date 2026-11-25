@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { listAttendees, listSignins } from "@/lib/db";
+import { listAttendees, listBranchRows, listSignins } from "@/lib/db";
 import { MEETING_TITLE, SOURCE_TITLE, displayName, formatTaipei } from "@/lib/meeting";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const [attendees, signins] = await Promise.all([listAttendees(), listSignins()]);
+  const [attendees, signins, branchRows] = await Promise.all([
+    listAttendees(),
+    listSignins(),
+    listBranchRows(),
+  ]);
   const signedByAttendee = new Map(
     signins.filter((item) => item.attendeeId).map((item) => [item.attendeeId!, item]),
   );
@@ -50,9 +54,20 @@ export async function GET() {
     });
   }
 
+  const branchDirectory: Array<{ name: string; order: number; branches: string[] }> = [];
+  for (const row of branchRows) {
+    let region = branchDirectory.find((item) => item.name === row.region);
+    if (!region) {
+      region = { name: row.region, order: row.regionOrder, branches: [] };
+      branchDirectory.push(region);
+    }
+    region.branches.push(row.branch);
+  }
+
   return NextResponse.json({
     meetingTitle: MEETING_TITLE,
     sourceTitle: SOURCE_TITLE,
     regions,
+    branchDirectory,
   });
 }

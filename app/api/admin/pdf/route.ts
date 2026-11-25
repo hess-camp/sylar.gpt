@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/auth";
-import { listAttendees, listSignins } from "@/lib/db";
+import { listAttendees, listBranchRows, listSignins } from "@/lib/db";
 import { buildSigninPdf } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +11,19 @@ export async function GET() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "請先登入" }, { status: 401 });
   }
-  const [signins, attendees] = await Promise.all([listSignins(), listAttendees()]);
+  const [signins, attendees, branchRows] = await Promise.all([
+    listSignins(),
+    listAttendees(),
+    listBranchRows(),
+  ]);
   const branchRank = new Map<string, number>();
   for (const person of attendees) {
     const key = `${person.region}\0${person.branch}`;
     if (!branchRank.has(key)) branchRank.set(key, person.seq);
+  }
+  for (const row of branchRows) {
+    const key = `${row.region}\0${row.branch}`;
+    if (!branchRank.has(key)) branchRank.set(key, row.seq);
   }
   const ordered = [...signins].sort((a, b) => {
     const region = a.regionOrder - b.regionOrder;

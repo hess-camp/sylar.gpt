@@ -42,3 +42,23 @@ body {
   color: var(--foreground);
   font-family: var(--font-noto), "Noto Sans TC", sans-serif;
 }
+
+.signin-theme {
+  --foreground: #4a3358;
+  --card: #ffffff;
+  --card-foreground: #4a3358;
+  --primary: #b44b78;
+  --primary-foreground: #ffffff;
+  --secondary: #f4e9ff;
+  --secondary-foreground: #5c3d78;
+  --muted: #fff0f6;
+  --muted-foreground: #8a6d86;
+  --border: #f3d5e4;
+  --input: #f3d5e4;
+  --ring: #b44b78;
+  background:
+    radial-gradient(900px 420px at 0% -10%, #ffe4f1 0%, transparent 60%),
+    radial-gradient(700px 380px at 100% 0%, #e7e4ff 0%, transparent 55%),
+    #fff8fb;
+  color: var(--foreground);
+}

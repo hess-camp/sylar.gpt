@@ -4,7 +4,7 @@ import {
   createSignin,
   findSigninByAttendee,
   getAttendee,
-  listAttendees,
+  listBranchRows,
 } from "@/lib/db";
 import { displayName, formatTaipei, isMeal, MEALS } from "@/lib/meeting";
 import { saveSignature } from "@/lib/storage";
@@ -63,9 +63,15 @@ export async function POST(request: Request) {
     if (!nameZh && !nameEn) {
       return NextResponse.json({ error: "請填寫中文姓名或英文名" }, { status: 400 });
     }
-    const attendees = await listAttendees();
-    const known = attendees.find((item) => item.region === region);
-    regionOrder = known?.regionOrder ?? 999;
+    if (region.length > 40 || branch.length > 40 || nameZh.length > 40 || nameEn.length > 40) {
+      return NextResponse.json({ error: "欄位請再短一點" }, { status: 400 });
+    }
+    const directory = await listBranchRows();
+    const known = directory.find((item) => item.region === region);
+    if (!known) {
+      return NextResponse.json({ error: "請選擇區域" }, { status: 400 });
+    }
+    regionOrder = known.regionOrder;
   }
 
   const id = randomUUID();

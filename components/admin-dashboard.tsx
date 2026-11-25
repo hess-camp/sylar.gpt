@@ -127,6 +127,24 @@ export function AdminDashboard() {
     }
   }
 
+  async function importBranches(file: File) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const response = await fetch("/api/admin/branches", { method: "POST", body });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "匯入失敗");
+      setMessage(`已更新分校總清單，共 ${json.count} 間分校`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "匯入失敗");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveCertificate(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -206,6 +224,27 @@ export function AdminDashboard() {
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void importCsv(file);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-semibold">匯入分校總清單 CSV</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              欄位：區域,分校。會取代當場報名用的分校總清單，不影響報名名單與已簽到記錄。
+            </p>
+            <label className="mt-3 inline-flex h-11 cursor-pointer items-center rounded-xl bg-secondary px-4 text-sm font-medium text-secondary-foreground">
+              選擇總清單 CSV
+              <input
+                className="sr-only"
+                type="file"
+                accept=".csv,text/csv"
+                disabled={busy}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void importBranches(file);
                   event.target.value = "";
                 }}
               />

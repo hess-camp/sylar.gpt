@@ -84,10 +84,21 @@ export async function ensureDb() {
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS branches (
+          region TEXT NOT NULL,
+          region_order INTEGER NOT NULL,
+          branch TEXT NOT NULL,
+          seq INTEGER NOT NULL,
+          PRIMARY KEY (region, branch)
+        );
       `);
       const count = await query<{ n: string }>("SELECT COUNT(*)::text AS n FROM attendees");
       if (Number(count[0]?.n ?? 0) === 0) {
         await seedFromFile();
+      }
+      const branchCount = await query<{ n: string }>("SELECT COUNT(*)::text AS n FROM branches");
+      if (Number(branchCount[0]?.n ?? 0) === 0) {
+        await seedBranchesFromAttendees();
       }
     })();
   }
@@ -143,6 +154,87 @@ export async function replaceAttendees(
         `INSERT INTO attendees (id, seq, region, region_order, branch, name_zh, name_en)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [`a-${index + 1}`, index + 1, row.region, row.regionOrder, row.branch, row.nameZh, row.nameEn],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+  return cleaned.length;
+}
+
+async function seedBranchesFromAttendees() {
+  const people = await query<{ region: string; region_order: number; branch: string }>(
+    "SELECT region, region_order, branch FROM attendees ORDER BY region_order, seq, id",
+  );
+  const seen = new Set<string>();
+  const seqByRegion = new Map<string, number>();
+  for (const person of people) {
+    const key = `${person.region}\0${person.branch}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const seq = (seqByRegion.get(person.region) ?? 0) + 1;
+    seqByRegion.set(person.region, seq);
+    await getPool().query(
+      `INSERT INTO branches (region, region_order, branch, seq) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (region, branch) DO NOTHING`,
+      [person.region, person.region_order, person.branch, seq],
+    );
+  }
+}
+
+export type BranchRow = {
+  region: string;
+  regionOrder: number;
+  branch: string;
+  seq: number;
+};
+
+export async function listBranchRows() {
+  await ensureDb();
+  const rows = await query(
+    `SELECT region, region_order, branch, seq FROM branches ORDER BY region_order, seq, branch`,
+  );
+  return rows.map(
+    (row): BranchRow => ({
+      region: row.region,
+      regionOrder: row.region_order,
+      branch: row.branch,
+      seq: row.seq,
+    }),
+  );
+}
+
+export async function replaceBranches(rows: Array<{ region: string; branch: string }>) {
+  await ensureDb();
+  const regionOrder = new Map<string, number>();
+  const seqByRegion = new Map<string, number>();
+  const cleaned: Array<{ region: string; regionOrder: number; branch: string; seq: number }> = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const region = row.region.trim();
+    const branch = row.branch.trim();
+    if (!region || !branch) continue;
+    const key = `${region}\0${branch}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!regionOrder.has(region)) regionOrder.set(region, regionOrder.size);
+    const seq = (seqByRegion.get(region) ?? 0) + 1;
+    seqByRegion.set(region, seq);
+    cleaned.push({ region, regionOrder: regionOrder.get(region)!, branch, seq });
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("DELETE FROM branches");
+    for (const row of cleaned) {
+      await client.query(
+        `INSERT INTO branches (region, region_order, branch, seq) VALUES ($1,$2,$3,$4)`,
+        [row.region, row.regionOrder, row.branch, row.seq],
       );
     }
     await client.query("COMMIT");

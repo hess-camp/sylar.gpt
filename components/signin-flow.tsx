@@ -18,6 +18,7 @@ type Person = {
 
 type Branch = { name: string; people: Person[] };
 type Region = { name: string; order: number; branches: Branch[] };
+type DirectoryRegion = { name: string; order: number; branches: string[] };
 
 type Done = {
   id: string;
@@ -27,24 +28,26 @@ type Done = {
   isWalkIn: boolean;
 };
 
+const CUSTOM_BRANCH = "__custom__";
+
+const MEAL_OPTIONS = [
+  { id: "meat", label: "葷", icon: "🍖" },
+  { id: "veg", label: "素", icon: "🥬" },
+  { id: "none", label: "不用餐", icon: "☺️" },
+] as const;
+
+const selectClassName =
+  "h-14 w-full appearance-none rounded-3xl border border-border bg-white px-4 pr-12 text-base font-medium text-foreground shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-[#fff0f6] disabled:text-muted-foreground";
+
 function CertificateLink({ id, className }: { id: string; className?: string }) {
   return (
-    <Button asChild size="lg" variant="secondary" className={className ?? "w-full"}>
+    <Button asChild size="lg" variant="secondary" className={className ?? "w-full rounded-3xl"}>
       <a href={`/api/certificates/${id}`} target="_blank" rel="noopener">
         下載出席證明
       </a>
     </Button>
   );
 }
-
-const MEAL_OPTIONS = [
-  { id: "meat", label: "葷" },
-  { id: "veg", label: "素" },
-  { id: "none", label: "不用餐" },
-] as const;
-
-const selectClassName =
-  "h-14 w-full appearance-none rounded-2xl border border-border bg-card px-4 pr-12 text-base font-medium shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground";
 
 function SelectField({
   id,
@@ -86,20 +89,27 @@ function SelectField({
 
 export function SigninFlow() {
   const [regions, setRegions] = useState<Region[] | null>(null);
+  const [directory, setDirectory] = useState<DirectoryRegion[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState<Region | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [person, setPerson] = useState<Person | null>(null);
   const [walkIn, setWalkIn] = useState(false);
+  const [walkRegion, setWalkRegion] = useState("");
+  const [walkBranch, setWalkBranch] = useState("");
+  const [customBranch, setCustomBranch] = useState("");
   const [nameZh, setNameZh] = useState("");
   const [nameEn, setNameEn] = useState("");
-  const [step, setStep] = useState<"pick" | "signature" | "meal" | "done">("pick");
+  const [step, setStep] = useState<"pick" | "walkin" | "signature" | "meal" | "done">("pick");
   const [signature, setSignature] = useState<string | null>(null);
   const [meal, setMeal] = useState<"meat" | "veg" | "none" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<Done | null>(null);
   const [notice, setNotice] = useState("");
+
+  const walkRegionItem = directory?.find((item) => item.name === walkRegion) ?? null;
+  const walkBranchName = walkBranch === CUSTOM_BRANCH ? customBranch.trim() : walkBranch.trim();
 
   async function load() {
     setLoading(true);
@@ -109,6 +119,7 @@ export function SigninFlow() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "名單載入失敗");
       setRegions(data.regions);
+      setDirectory(data.branchDirectory ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "名單載入失敗");
     } finally {
@@ -125,6 +136,9 @@ export function SigninFlow() {
     setBranch(null);
     setPerson(null);
     setWalkIn(false);
+    setWalkRegion("");
+    setWalkBranch("");
+    setCustomBranch("");
     setNameZh("");
     setNameEn("");
     setStep("pick");
@@ -178,35 +192,51 @@ export function SigninFlow() {
   }
 
   function startWalkIn() {
-    if (!region || !branch) {
-      setError("請先選擇區域與分校");
+    if (!directory?.length) {
+      setError("分校總清單還沒準備好，請稍後再試");
       return;
     }
     setError("");
     setNotice("");
     setPerson(null);
     setWalkIn(true);
+    setWalkRegion("");
+    setWalkBranch("");
+    setCustomBranch("");
     setNameZh("");
     setNameEn("");
+    setStep("walkin");
   }
 
   async function submit() {
-    if (!signature || !meal || !region || !branch) return;
+    if (!signature || !meal) return;
+    if (walkIn) {
+      if (!walkRegion || !walkBranchName || !nameZh.trim()) return;
+    } else if (!person) {
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
       const response = await fetch("/api/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attendeeId: walkIn ? undefined : person?.id,
-          region: region.name,
-          branch: branch.name,
-          nameZh: walkIn ? nameZh : person?.nameZh,
-          nameEn: walkIn ? nameEn : person?.nameEn,
-          meal,
-          signature,
-        }),
+        body: JSON.stringify(
+          walkIn
+            ? {
+                region: walkRegion,
+                branch: walkBranchName,
+                nameZh,
+                nameEn,
+                meal,
+                signature,
+              }
+            : {
+                attendeeId: person?.id,
+                meal,
+                signature,
+              },
+        ),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "簽到失敗");
@@ -227,34 +257,42 @@ export function SigninFlow() {
 
   const heading =
     step === "signature"
-      ? "請簽名"
+      ? "簽個名吧 ✍️"
       : step === "meal"
-        ? "請選擇便當"
+        ? "便當要哪一種？🍱"
         : step === "done"
-          ? "簽到完成"
-          : walkIn
-            ? "當場報名"
-            : "請選擇簽到人員";
+          ? "完成啦 🎉"
+          : step === "walkin"
+            ? "當場報名 📝"
+            : "你要怎麼簽到？";
+
+  const place = walkIn
+    ? `${walkRegion} · ${walkBranchName}`
+    : region && branch
+      ? `${region.name} · ${branch.name}`
+      : "";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-8 pt-5">
-      <header className="rounded-2xl bg-primary px-4 py-4 text-primary-foreground shadow-sm">
-        <p className="text-xs tracking-wide text-white/75">HESS</p>
-        <h1 className="mt-1 text-xl font-semibold leading-snug">HCT 中籍美語教務主管會議</h1>
-        <p className="mt-1 text-sm text-white/80">現場簽到</p>
+    <main className="signin-theme mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-8 pt-5">
+      <header className="rounded-[1.75rem] bg-gradient-to-br from-[#ffd9ea] via-[#ffe7d6] to-[#e7e0ff] px-5 py-5 text-[#4a3358] shadow-sm">
+        <p className="text-sm font-medium text-[#8a5070]">🌸 HESS 現場簽到</p>
+        <h1 className="mt-1 text-2xl font-semibold leading-snug">嗨，歡迎你</h1>
+        <p className="mt-1 text-sm text-[#6d5274]">HCT 中籍美語教務主管會議</p>
       </header>
 
       <section className="mt-4 flex flex-1 flex-col">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{heading}</h2>
-          {step === "pick" && walkIn ? (
+          {step === "walkin" ? (
             <Button
               variant="ghost"
               size="sm"
+              className="rounded-full"
               onClick={() => {
                 setNotice("");
                 setError("");
                 setWalkIn(false);
+                setStep("pick");
               }}
             >
               返回
@@ -264,10 +302,11 @@ export function SigninFlow() {
             <Button
               variant="ghost"
               size="sm"
+              className="rounded-full"
               onClick={() => {
                 setError("");
                 if (step === "meal") setStep("signature");
-                else setStep("pick");
+                else setStep(walkIn ? "walkin" : "pick");
               }}
             >
               返回
@@ -277,20 +316,36 @@ export function SigninFlow() {
 
         {loading && <p className="text-muted-foreground">名單載入中…</p>}
         {error && (
-          <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          <p className="mb-3 rounded-2xl bg-[#ffe8ea] px-3 py-2 text-sm text-[#9b3040]" role="alert">
             {error}
           </p>
         )}
         {notice && (
-          <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>
+          <p className="mb-3 rounded-2xl bg-[#e7f8ef] px-3 py-2 text-sm text-[#1f7a4d]">{notice}</p>
         )}
 
-        {!loading && regions && step === "pick" && !walkIn && (
+        {!loading && step === "pick" && (
           <div className="grid gap-4">
-            {regions.length === 0 ? (
-              <p className="text-muted-foreground">目前沒有報名名單。請由後台匯入 CSV。</p>
-            ) : (
-              <>
+            <button
+              type="button"
+              className="flex min-h-16 w-full items-center gap-3 rounded-3xl bg-primary px-5 text-left text-primary-foreground shadow-sm active:brightness-95"
+              onClick={startWalkIn}
+            >
+              <span className="text-2xl" aria-hidden>
+                ✨
+              </span>
+              <span>
+                <span className="block text-lg font-semibold">當場報名</span>
+                <span className="block text-sm text-white/85">分校不在名單裡也沒關係</span>
+              </span>
+            </button>
+
+            {regions && regions.length > 0 ? (
+              <div className="grid gap-4 rounded-[1.75rem] bg-white/90 p-4 shadow-sm ring-1 ring-[#f3d5e4]">
+                <div>
+                  <p className="text-base font-semibold">從名單找自己 📋</p>
+                  <p className="mt-1 text-sm text-muted-foreground">依序選區域、分校和姓名</p>
+                </div>
                 <SelectField id="region" label="區域" value={region?.name ?? ""} onChange={selectRegion}>
                   <option value="">請選擇區域</option>
                   {regions.map((item) => (
@@ -335,46 +390,115 @@ export function SigninFlow() {
                 <Button
                   type="button"
                   size="lg"
-                  className="w-full"
+                  className="w-full rounded-3xl"
                   disabled={!person || person.signed}
                   onClick={continueToSignature}
                 >
                   下一步，簽名
                 </Button>
-                <Button type="button" variant="secondary" size="lg" className="w-full" onClick={startWalkIn}>
-                  當場報名
-                </Button>
-              </>
+              </div>
+            ) : (
+              <p className="rounded-3xl bg-white/80 px-4 py-3 text-sm text-muted-foreground">
+                目前沒有報名名單。已在名單上的同事請等後台匯入；現在到的人可以直接當場報名。
+              </p>
             )}
           </div>
         )}
 
-        {step === "pick" && walkIn && region && branch && (
+        {step === "walkin" && (
           <form
-            className="grid gap-3"
+            className="grid gap-4 rounded-[1.75rem] bg-white/90 p-4 shadow-sm ring-1 ring-[#f3d5e4]"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!nameZh.trim() && !nameEn.trim()) {
-                setError("請填寫中文姓名或英文名");
+              if (!walkRegion) {
+                setError("請選擇區域");
+                return;
+              }
+              if (!walkBranchName) {
+                setError(walkBranch === CUSTOM_BRANCH ? "請輸入分校名稱" : "請選擇分校");
+                return;
+              }
+              if (!nameZh.trim()) {
+                setError("請填寫姓名");
                 return;
               }
               setError("");
               setPerson(null);
+              setWalkIn(true);
               setStep("signature");
             }}
           >
-            <p className="text-sm text-muted-foreground">
-              {region.name} · {branch.name}
-            </p>
-            <label className="grid gap-1 text-sm font-medium">
-              中文姓名
-              <Input value={nameZh} onChange={(event) => setNameZh(event.target.value)} placeholder="例如：王小明" />
+            <p className="text-sm text-muted-foreground">選區域和分校，再寫下姓名。分校若不在清單裡，可以自己填。</p>
+            <SelectField
+              id="walk-region"
+              label="區域"
+              value={walkRegion}
+              onChange={(value) => {
+                setWalkRegion(value);
+                setWalkBranch("");
+                setCustomBranch("");
+                setError("");
+              }}
+            >
+              <option value="">請選擇區域</option>
+              {directory?.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              id="walk-branch"
+              label="分校"
+              value={walkBranch}
+              disabled={!walkRegion}
+              onChange={(value) => {
+                setWalkBranch(value);
+                if (value !== CUSTOM_BRANCH) setCustomBranch("");
+                setError("");
+              }}
+            >
+              <option value="">{walkRegion ? "請選擇分校" : "請先選擇區域"}</option>
+              {walkRegionItem?.branches.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+              <option value={CUSTOM_BRANCH}>其他分校（自行填寫）</option>
+            </SelectField>
+
+            {walkBranch === CUSTOM_BRANCH ? (
+              <label className="grid gap-2 text-base font-medium">
+                分校名稱
+                <Input
+                  className="h-14 rounded-3xl"
+                  value={customBranch}
+                  onChange={(event) => setCustomBranch(event.target.value)}
+                  placeholder="輸入名單上沒有的分校"
+                />
+              </label>
+            ) : null}
+
+            <label className="grid gap-2 text-base font-medium">
+              姓名
+              <Input
+                className="h-14 rounded-3xl"
+                value={nameZh}
+                onChange={(event) => setNameZh(event.target.value)}
+                placeholder="例如：王小明"
+              />
             </label>
-            <label className="grid gap-1 text-sm font-medium">
+            <label className="grid gap-2 text-base font-medium">
               英文名（選填）
-              <Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} placeholder="例如：Amy Wang" />
+              <Input
+                className="h-14 rounded-3xl"
+                value={nameEn}
+                onChange={(event) => setNameEn(event.target.value)}
+                placeholder="例如：Amy"
+              />
             </label>
-            <Button type="submit" size="lg">
+            <Button type="submit" size="lg" className="w-full rounded-3xl">
               下一步，簽名
             </Button>
           </form>
@@ -383,13 +507,11 @@ export function SigninFlow() {
         {step === "signature" && (
           <div className="grid gap-3">
             <p className="text-sm text-muted-foreground">
-              {walkIn
-                ? `${nameZh} ${nameEn}`.trim()
-                : person?.displayName}{" "}
-              · {branch?.name}
+              {walkIn ? `${nameZh} ${nameEn}`.trim() : person?.displayName} · {place}
             </p>
+            <p className="text-sm text-muted-foreground">用手指慢慢簽，簽不好可以重來。</p>
             <SignaturePad onChange={setSignature} />
-            <Button size="lg" disabled={!signature} onClick={() => setStep("meal")}>
+            <Button size="lg" className="rounded-3xl" disabled={!signature} onClick={() => setStep("meal")}>
               下一步
             </Button>
           </div>
@@ -397,37 +519,45 @@ export function SigninFlow() {
 
         {step === "meal" && (
           <div className="grid gap-3">
+            <p className="text-sm text-muted-foreground">選一個就好，沒有標準答案。</p>
             <div className="grid grid-cols-3 gap-2">
               {MEAL_OPTIONS.map((option) => (
                 <button
                   key={option.id}
                   type="button"
-                  className={`min-h-20 rounded-2xl border text-lg font-semibold ${
+                  className={`min-h-24 rounded-3xl border text-lg font-semibold ${
                     meal === option.id
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card"
+                      : "border-[#f3d5e4] bg-white"
                   }`}
                   onClick={() => setMeal(option.id)}
                 >
+                  <span className="block text-2xl" aria-hidden>
+                    {option.icon}
+                  </span>
                   {option.label}
                 </button>
               ))}
             </div>
-            <Button size="lg" disabled={!meal || submitting} onClick={() => void submit()}>
+            <Button size="lg" className="rounded-3xl" disabled={!meal || submitting} onClick={() => void submit()}>
               {submitting ? "送出中…" : "送出"}
             </Button>
           </div>
         )}
 
         {step === "done" && done && (
-          <div className="rounded-3xl border border-border bg-card px-5 py-8 text-center shadow-sm">
-            <p className="text-sm text-emerald-700">簽到完成</p>
+          <div className="rounded-[1.75rem] bg-white px-5 py-8 text-center shadow-sm ring-1 ring-[#f3d5e4]">
+            <p className="text-5xl" aria-hidden>
+              🎉
+            </p>
+            <p className="mt-3 text-sm font-medium text-[#b44b78]">簽到完成</p>
             <p className="mt-2 text-2xl font-semibold">{done.displayName}</p>
             <p className="mt-3 text-base">{done.signedAt}</p>
             <p className="text-sm text-muted-foreground">台灣時間 · 便當：{done.mealLabel}</p>
-            {done.isWalkIn ? <p className="mt-2 text-sm">當場報名</p> : null}
-            {done.id ? <CertificateLink id={done.id} className="mt-6 w-full" /> : null}
-            <Button size="lg" className="mt-3 w-full" onClick={reset}>
+            <p className="mt-2 text-sm text-[#6d5274]">謝謝你特地來一趟，路上小心。</p>
+            {done.isWalkIn ? <p className="mt-2 text-sm">這次是當場報名</p> : null}
+            {done.id ? <CertificateLink id={done.id} className="mt-6 w-full rounded-3xl" /> : null}
+            <Button size="lg" className="mt-3 w-full rounded-3xl" onClick={reset}>
               下一位簽到
             </Button>
           </div>
