@@ -264,7 +264,7 @@ export function SigninFlow() {
           ? "完成啦 🎉"
           : step === "walkin"
             ? "當場報名 📝"
-            : "你要怎麼簽到？";
+            : "請先從名單找自己";
 
   const place = walkIn
     ? `${walkRegion} · ${walkBranchName}`
@@ -326,20 +326,6 @@ export function SigninFlow() {
 
         {!loading && step === "pick" && (
           <div className="grid gap-4">
-            <button
-              type="button"
-              className="flex min-h-16 w-full items-center gap-3 rounded-3xl bg-primary px-5 text-left text-primary-foreground shadow-sm active:brightness-95"
-              onClick={startWalkIn}
-            >
-              <span className="text-2xl" aria-hidden>
-                ✨
-              </span>
-              <span>
-                <span className="block text-lg font-semibold">當場報名</span>
-                <span className="block text-sm text-white/85">分校不在名單裡也沒關係</span>
-              </span>
-            </button>
-
             {regions && regions.length > 0 ? (
               <div className="grid gap-4 rounded-[1.75rem] bg-white/90 p-4 shadow-sm ring-1 ring-[#f3d5e4]">
                 <div>
@@ -399,9 +385,16 @@ export function SigninFlow() {
               </div>
             ) : (
               <p className="rounded-3xl bg-white/80 px-4 py-3 text-sm text-muted-foreground">
-                目前沒有報名名單。已在名單上的同事請等後台匯入；現在到的人可以直接當場報名。
+                目前沒有報名名單。已在名單上的同事請等後台匯入。
               </p>
             )}
+            <button
+              type="button"
+              className="mx-auto min-h-11 px-2 text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+              onClick={startWalkIn}
+            >
+              名單裡找不到自己？→ 當場報名
+            </button>
           </div>
         )}
 
