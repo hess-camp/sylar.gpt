@@ -22,6 +22,7 @@ export async function GET() {
         nameEn: string;
         signed: boolean;
         signedAt: string | null;
+        signinId: string | null;
       }>;
     }>;
   }> = [];
@@ -45,6 +46,7 @@ export async function GET() {
       nameEn: person.nameEn,
       signed: Boolean(existing),
       signedAt: existing ? formatTaipei(existing.signedAt) : null,
+      signinId: existing?.id ?? null,
     });
   }
 

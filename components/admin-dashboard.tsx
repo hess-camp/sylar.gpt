@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -27,6 +28,21 @@ type RegionBlock = {
   unsigned: Array<{ branch: string; displayName: string }>;
 };
 
+type CertificateFields = {
+  meetingDate: string;
+  meetingName: string;
+  time: string;
+  issuer: string;
+  organizer: string;
+};
+
+type CertificateState = {
+  stored: CertificateFields;
+  defaults: CertificateFields;
+  effective: CertificateFields;
+  today: string;
+};
+
 type Overview = {
   counts: {
     meat: number;
@@ -46,6 +62,14 @@ export function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SigninRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [certificate, setCertificate] = useState<CertificateState | null>(null);
+  const [certificateForm, setCertificateForm] = useState<CertificateFields>({
+    meetingDate: "",
+    meetingName: "",
+    time: "",
+    issuer: "",
+    organizer: "",
+  });
 
   async function load() {
     const response = await fetch("/api/admin/overview", { cache: "no-store" });
@@ -54,8 +78,17 @@ export function AdminDashboard() {
     setData(json);
   }
 
+  async function loadCertificate() {
+    const response = await fetch("/api/admin/certificate", { cache: "no-store" });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || "讀取證明設定失敗");
+    setCertificate(json);
+    setCertificateForm(json.stored);
+  }
+
   useEffect(() => {
     void load().catch((err: Error) => setError(err.message));
+    void loadCertificate().catch((err: Error) => setError(err.message));
   }, []);
 
   async function remove(id: string) {
@@ -92,6 +125,33 @@ export function AdminDashboard() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveCertificate(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/certificate", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(certificateForm),
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "儲存失敗");
+      setCertificate(json);
+      setCertificateForm(json.stored);
+      setMessage("已更新出席證明設定");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "儲存失敗");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateCertificate(key: keyof CertificateFields, value: string) {
+    setCertificateForm((current) => ({ ...current, [key]: value }));
   }
 
   async function logout() {
@@ -150,6 +210,62 @@ export function AdminDashboard() {
                 }}
               />
             </label>
+          </section>
+
+          <section className="mt-4 rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-semibold">出席證明</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              留白則使用設定檔預設。會議日期留白則使用今天（台灣時間
+              {certificate ? ` ${certificate.today}` : ""}）。
+            </p>
+            {certificate ? (
+              <p className="mt-2 text-sm">
+                目前證明：{certificate.effective.meetingDate} {certificate.effective.meetingName}　時間{" "}
+                {certificate.effective.time}
+              </p>
+            ) : null}
+            <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={(event) => void saveCertificate(event)}>
+              <Field label="會議日期" hint="YYYY.MM.DD">
+                <Input
+                  value={certificateForm.meetingDate}
+                  placeholder={certificate?.today ?? "YYYY.MM.DD"}
+                  onChange={(event) => updateCertificate("meetingDate", event.target.value)}
+                />
+              </Field>
+              <Field label="會議/訓練名稱">
+                <Input
+                  value={certificateForm.meetingName}
+                  placeholder={certificate?.defaults.meetingName}
+                  onChange={(event) => updateCertificate("meetingName", event.target.value)}
+                />
+              </Field>
+              <Field label="時間">
+                <Input
+                  value={certificateForm.time}
+                  placeholder={certificate?.defaults.time}
+                  onChange={(event) => updateCertificate("time", event.target.value)}
+                />
+              </Field>
+              <Field label="核發單位">
+                <Input
+                  value={certificateForm.issuer}
+                  placeholder={certificate?.defaults.issuer}
+                  onChange={(event) => updateCertificate("issuer", event.target.value)}
+                />
+              </Field>
+              <Field label="籌辦人">
+                <Input
+                  value={certificateForm.organizer}
+                  placeholder={certificate?.defaults.organizer}
+                  onChange={(event) => updateCertificate("organizer", event.target.value)}
+                />
+              </Field>
+              <div className="flex items-end">
+                <Button type="submit" disabled={busy}>
+                  儲存證明設定
+                </Button>
+              </div>
+            </form>
           </section>
 
           <details className="mt-4 rounded-2xl border border-border bg-card p-4">
@@ -253,6 +369,18 @@ export function AdminDashboard() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="grid gap-1 text-sm font-medium">
+      <span>
+        {label}
+        {hint ? <span className="ml-2 font-normal text-muted-foreground">{hint}</span> : null}
+      </span>
+      {children}
+    </label>
   );
 }
 

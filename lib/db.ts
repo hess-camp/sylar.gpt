@@ -80,6 +80,10 @@ export async function ensureDb() {
           signature_key TEXT NOT NULL,
           signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
       `);
       const count = await query<{ n: string }>("SELECT COUNT(*)::text AS n FROM attendees");
       if (Number(count[0]?.n ?? 0) === 0) {
@@ -195,6 +199,44 @@ export async function listSignins() {
   await ensureDb();
   const rows = await query(`SELECT * FROM signins ORDER BY region_order, signed_at`);
   return rows.map(mapSignin);
+}
+
+export async function getSignin(id: string) {
+  await ensureDb();
+  const rows = await query(`SELECT * FROM signins WHERE id = $1`, [id]);
+  return rows[0] ? mapSignin(rows[0]) : null;
+}
+
+export async function getSettings(keys: string[]) {
+  await ensureDb();
+  if (keys.length === 0) return new Map<string, string>();
+  const placeholders = keys.map((_, index) => `$${index + 1}`).join(", ");
+  const rows = await query<{ key: string; value: string }>(
+    `SELECT key, value FROM settings WHERE key IN (${placeholders})`,
+    keys,
+  );
+  return new Map(rows.map((row) => [row.key, row.value]));
+}
+
+export async function upsertSettings(entries: Array<{ key: string; value: string }>) {
+  await ensureDb();
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    for (const entry of entries) {
+      await client.query(
+        `INSERT INTO settings (key, value) VALUES ($1, $2)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+        [entry.key, entry.value],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function findSigninByAttendee(attendeeId: string) {

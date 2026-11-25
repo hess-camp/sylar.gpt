@@ -13,17 +13,29 @@ type Person = {
   nameEn: string;
   signed: boolean;
   signedAt: string | null;
+  signinId: string | null;
 };
 
 type Branch = { name: string; people: Person[] };
 type Region = { name: string; order: number; branches: Branch[] };
 
 type Done = {
+  id: string;
   displayName: string;
   mealLabel: string;
   signedAt: string;
   isWalkIn: boolean;
 };
+
+function CertificateLink({ id, className }: { id: string; className?: string }) {
+  return (
+    <Button asChild size="lg" variant="secondary" className={className ?? "w-full"}>
+      <a href={`/api/certificates/${id}`} target="_blank" rel="noopener">
+        下載出席證明
+      </a>
+    </Button>
+  );
+}
 
 const MEAL_OPTIONS = [
   { id: "meat", label: "葷" },
@@ -144,13 +156,12 @@ export function SigninFlow() {
     const next = branch?.people.find((item) => item.id === id) ?? null;
     setError("");
     setWalkIn(false);
+    setPerson(next);
     if (next?.signed) {
-      setPerson(null);
       setNotice(`${next.displayName} 已簽到${next.signedAt ? `（${next.signedAt}）` : ""}`);
       return;
     }
     setNotice("");
-    setPerson(next);
   }
 
   function continueToSignature() {
@@ -199,7 +210,13 @@ export function SigninFlow() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "簽到失敗");
-      setDone(data);
+      setDone({
+        id: String(data.id ?? ""),
+        displayName: String(data.displayName ?? ""),
+        mealLabel: String(data.mealLabel ?? ""),
+        signedAt: String(data.signedAt ?? ""),
+        isWalkIn: Boolean(data.isWalkIn),
+      });
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "簽到失敗");
@@ -307,11 +324,13 @@ export function SigninFlow() {
                 >
                   <option value="">{branch ? "請選擇姓名" : "請先選擇分校"}</option>
                   {branch?.people.map((item) => (
-                    <option key={item.id} value={item.id} disabled={item.signed}>
+                    <option key={item.id} value={item.id}>
                       {item.signed ? `${item.displayName}（已簽到）` : item.displayName}
                     </option>
                   ))}
                 </SelectField>
+
+                {person?.signed && person.signinId ? <CertificateLink id={person.signinId} /> : null}
 
                 <Button
                   type="button"
@@ -407,7 +426,8 @@ export function SigninFlow() {
             <p className="mt-3 text-base">{done.signedAt}</p>
             <p className="text-sm text-muted-foreground">台灣時間 · 便當：{done.mealLabel}</p>
             {done.isWalkIn ? <p className="mt-2 text-sm">當場報名</p> : null}
-            <Button size="lg" className="mt-6 w-full" onClick={reset}>
+            {done.id ? <CertificateLink id={done.id} className="mt-6 w-full" /> : null}
+            <Button size="lg" className="mt-3 w-full" onClick={reset}>
               下一位簽到
             </Button>
           </div>
