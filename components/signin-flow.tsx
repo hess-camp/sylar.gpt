@@ -561,10 +561,11 @@ export function SigninFlow() {
         )}
       </section>
 
-      <footer className="mt-8 text-center text-xs text-muted-foreground">
-        <a href="/admin" className="underline-offset-2 hover:underline">
+      <footer className="mt-8 pb-1 text-center">
+        <a href="/admin" className="text-xs text-muted-foreground underline-offset-2 hover:underline">
           後台
         </a>
+        <p className="mt-2 text-[11px] tracking-wide text-[#c4aebc]">Created and Managed by EERD</p>
       </footer>
     </main>
   );
