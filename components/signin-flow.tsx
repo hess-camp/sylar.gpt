@@ -33,7 +33,7 @@ const CUSTOM_BRANCH = "__custom__";
 const MEAL_OPTIONS = [
   { id: "meat", label: "🥩 葷" },
   { id: "veg", label: "🥕 素" },
-  { id: "none", label: "🙅‍♂️ 不用餐" },
+  { id: "none", label: "🙅🏼 不用餐" },
 ] as const;
 
 const selectClassName =
