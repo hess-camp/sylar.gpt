@@ -11,7 +11,9 @@ function storageKey(id: string) {
 
 function readLocal(id: string) {
   try {
-    const value = Number(localStorage.getItem(storageKey(id)));
+    const raw = localStorage.getItem(storageKey(id));
+    if (raw === null || raw === "") return null;
+    const value = Number(raw);
     return Number.isInteger(value) ? value : null;
   } catch {
     return null;
