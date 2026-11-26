@@ -79,9 +79,11 @@ export async function ensureDb() {
           meal TEXT NOT NULL,
           signature_key TEXT NOT NULL,
           signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          email TEXT NOT NULL DEFAULT ''
+          email TEXT NOT NULL DEFAULT '',
+          fortune_index INTEGER
         );
         ALTER TABLE signins ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
+        ALTER TABLE signins ADD COLUMN IF NOT EXISTS fortune_index INTEGER;
         CREATE TABLE IF NOT EXISTS settings (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
@@ -374,6 +376,28 @@ export async function createSignin(input: {
     ],
   );
   return mapSignin(rows[0]);
+}
+
+export async function readFortuneIndex(id: string) {
+  await ensureDb();
+  const rows = await query<{ fortune_index: number | null }>(
+    `SELECT fortune_index FROM signins WHERE id = $1`,
+    [id],
+  );
+  if (!rows[0]) return undefined;
+  return rows[0].fortune_index;
+}
+
+export async function claimFortune(id: string, index: number) {
+  await ensureDb();
+  const rows = await query<{ fortune_index: number }>(
+    `UPDATE signins
+     SET fortune_index = COALESCE(fortune_index, $2)
+     WHERE id = $1
+     RETURNING fortune_index`,
+    [id, index],
+  );
+  return rows[0]?.fortune_index ?? null;
 }
 
 export async function deleteSignin(id: string) {

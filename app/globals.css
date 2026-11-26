@@ -62,3 +62,56 @@ body {
     #fff8fb;
   color: var(--foreground);
 }
+
+@keyframes fortune-wobble {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+.fortune-wobble {
+  animation: fortune-wobble 1.15s ease-in-out infinite;
+  transform-origin: 50% 75%;
+}
+
+.fortune-half {
+  transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.fortune-cookie.is-open .half-left {
+  transform: translate(-22px, 8px) rotate(-16deg);
+}
+
+.fortune-cookie.is-open .half-right {
+  transform: translate(22px, 8px) rotate(16deg);
+}
+
+.fortune-slip {
+  animation: fortune-pop 0.45s ease both;
+}
+
+@keyframes fortune-pop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fortune-wobble,
+  .fortune-slip {
+    animation: none;
+  }
+
+  .fortune-half {
+    transition: none;
+  }
+}

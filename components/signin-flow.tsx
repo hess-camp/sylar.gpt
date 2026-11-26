@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FortuneCookie } from "@/components/fortune-cookie";
 import { SignaturePad } from "@/components/signature-pad";
 
 type Person = {
@@ -390,7 +391,12 @@ export function SigninFlow() {
                   ))}
                 </SelectField>
 
-                {person?.signed && person.signinId ? <CertificateLink id={person.signinId} /> : null}
+                {person?.signed && person.signinId ? (
+                  <>
+                    <CertificateLink id={person.signinId} />
+                    <FortuneCookie signinId={person.signinId} />
+                  </>
+                ) : null}
 
                 <Button
                   type="button"
@@ -619,6 +625,7 @@ export function SigninFlow() {
             <p className="text-sm text-muted-foreground">台灣時間 · 便當：{done.mealLabel}</p>
             <p className="mt-2 text-sm text-[#6d5274]">歡迎您出席，祝您今日收穫滿滿。</p>
             {done.isWalkIn ? <p className="mt-2 text-sm">這次是當場報名</p> : null}
+            {done.id ? <FortuneCookie signinId={done.id} /> : null}
             {done.id ? <CertificateLink id={done.id} className="mt-6 w-full rounded-3xl" /> : null}
             <Button size="lg" className="mt-3 w-full rounded-3xl" onClick={reset}>
               下一位簽到
