@@ -6,6 +6,7 @@ import {
   getAttendee,
   listBranchRows,
 } from "@/lib/db";
+import { emailCertificate, isOptionalEmail, normalizeEmail } from "@/lib/email";
 import { displayName, formatTaipei, isMeal, MEALS } from "@/lib/meeting";
 import { saveSignature } from "@/lib/storage";
 
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
   const png = decodePng(signature);
   if (!png) {
     return NextResponse.json({ error: "請先簽名" }, { status: 400 });
+  }
+  const email = normalizeEmail(body.email);
+  if (!isOptionalEmail(email)) {
+    return NextResponse.json({ error: "Email 格式不正確，請再確認或先留空" }, { status: 400 });
   }
 
   let region = "";
@@ -87,8 +92,10 @@ export async function POST(request: Request) {
     isWalkIn,
     meal,
     signatureKey,
+    email,
   });
 
+  const mailed = await emailCertificate(signin);
   return NextResponse.json({
     id: signin.id,
     displayName: displayName(signin.nameZh, signin.nameEn),
@@ -97,6 +104,8 @@ export async function POST(request: Request) {
     isWalkIn: signin.isWalkIn,
     region: signin.region,
     branch: signin.branch,
+    emailSent: mailed.sent,
+    emailNote: mailed.note,
   });
 }
 

@@ -25,6 +25,7 @@ export type Signin = {
   meal: "meat" | "veg" | "none";
   signatureKey: string;
   signedAt: Date;
+  email: string;
 };
 
 const globalForPg = globalThis as unknown as { pool?: Pool; ready?: Promise<void> };
@@ -78,8 +79,10 @@ export async function ensureDb() {
           is_walk_in BOOLEAN NOT NULL DEFAULT FALSE,
           meal TEXT NOT NULL,
           signature_key TEXT NOT NULL,
-          signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          signed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          email TEXT NOT NULL DEFAULT ''
         );
+        ALTER TABLE signins ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
         CREATE TABLE IF NOT EXISTS settings (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
@@ -272,6 +275,7 @@ function mapSignin(row: QueryResultRow): Signin {
     meal: row.meal,
     signatureKey: row.signature_key,
     signedAt: new Date(row.signed_at),
+    email: row.email ?? "",
   };
 }
 
@@ -351,12 +355,13 @@ export async function createSignin(input: {
   isWalkIn: boolean;
   meal: "meat" | "veg" | "none";
   signatureKey: string;
+  email: string;
 }) {
   await ensureDb();
   const rows = await query(
     `INSERT INTO signins
-      (id, attendee_id, region, region_order, branch, name_zh, name_en, is_walk_in, meal, signature_key)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (id, attendee_id, region, region_order, branch, name_zh, name_en, is_walk_in, meal, signature_key, email)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [
       input.id,
@@ -369,6 +374,7 @@ export async function createSignin(input: {
       input.isWalkIn,
       input.meal,
       input.signatureKey,
+      input.email,
     ],
   );
   return mapSignin(rows[0]);

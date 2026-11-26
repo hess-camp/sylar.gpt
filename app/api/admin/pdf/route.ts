@@ -44,6 +44,7 @@ export async function GET() {
       isWalkIn: item.isWalkIn,
       meal: item.meal,
       signatureKey: item.signatureKey,
+      email: item.email,
     })),
   );
   return new NextResponse(new Uint8Array(pdf), {

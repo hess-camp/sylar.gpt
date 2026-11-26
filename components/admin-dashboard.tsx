@@ -18,6 +18,7 @@ type SigninRow = {
   displayName: string;
   isWalkIn: boolean;
   mealLabel: string;
+  email: string;
   signedAt: string;
   signatureUrl: string;
 };
@@ -170,6 +171,22 @@ export function AdminDashboard() {
 
   function updateCertificate(key: keyof CertificateFields, value: string) {
     setCertificateForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function resendCertificate(row: SigninRow) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/signins/${row.id}/resend`, { method: "POST" });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || "寄送失敗");
+      setMessage(json.sent ? `已寄出出席證明給 ${row.displayName}` : json.note || "沒有寄出");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "寄送失敗");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function logout() {
@@ -336,12 +353,13 @@ export function AdminDashboard() {
                     {region.name}（{region.signins.length} 人）
                   </h2>
                   <div className="overflow-x-auto">
-                    <table className="min-w-[760px] w-full text-left text-sm">
+                    <table className="min-w-[980px] w-full text-left text-sm">
                       <thead className="bg-primary text-primary-foreground">
                         <tr>
                           <th className="px-3 py-2 font-medium">區域</th>
                           <th className="px-3 py-2 font-medium">分校</th>
                           <th className="px-3 py-2 font-medium">姓名</th>
+                          <th className="px-3 py-2 font-medium">Email</th>
                           <th className="px-3 py-2 font-medium">簽名</th>
                           <th className="px-3 py-2 font-medium">便當</th>
                           <th className="px-3 py-2 font-medium">簽到時間</th>
@@ -359,6 +377,7 @@ export function AdminDashboard() {
                                 {row.isWalkIn ? <Badge className="bg-amber-50 text-amber-800 ring-amber-200">當場報名</Badge> : null}
                               </div>
                             </td>
+                            <td className="px-3 py-2 break-all">{row.email || "—"}</td>
                             <td className="px-3 py-2">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={row.signatureUrl} alt={`${row.displayName} 的簽名`} className="h-16 w-40 object-contain" />
@@ -366,9 +385,19 @@ export function AdminDashboard() {
                             <td className="px-3 py-2">{row.mealLabel}</td>
                             <td className="px-3 py-2 whitespace-nowrap">{row.signedAt}</td>
                             <td className="px-3 py-2">
-                              <Button variant="destructive" size="sm" onClick={() => setPendingDelete(row)}>
-                                刪除
-                              </Button>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!row.email || busy}
+                                  onClick={() => void resendCertificate(row)}
+                                >
+                                  補寄證明
+                                </Button>
+                                <Button variant="destructive" size="sm" onClick={() => setPendingDelete(row)}>
+                                  刪除
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
