@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SignaturePad } from "@/components/signature-pad";
 
@@ -105,6 +106,7 @@ export function SigninFlow() {
   const [signature, setSignature] = useState<string | null>(null);
   const [meal, setMeal] = useState<"meat" | "veg" | "none" | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [done, setDone] = useState<Done | null>(null);
   const [notice, setNotice] = useState("");
 
@@ -146,7 +148,19 @@ export function SigninFlow() {
     setMeal(null);
     setDone(null);
     setNotice("");
+    setConfirmOpen(false);
     void load();
+  }
+
+  function askToConfirm() {
+    if (submitting || !signature || !meal) return;
+    if (walkIn) {
+      if (!walkRegion || !walkBranchName || !nameZh.trim()) return;
+    } else if (!person || person.signed) {
+      return;
+    }
+    setError("");
+    setConfirmOpen(true);
   }
 
   function selectRegion(name: string) {
@@ -209,10 +223,10 @@ export function SigninFlow() {
   }
 
   async function submit() {
-    if (!signature || !meal) return;
+    if (submitting || !signature || !meal) return;
     if (walkIn) {
       if (!walkRegion || !walkBranchName || !nameZh.trim()) return;
-    } else if (!person) {
+    } else if (!person || person.signed) {
       return;
     }
     setSubmitting(true);
@@ -247,6 +261,7 @@ export function SigninFlow() {
         signedAt: String(data.signedAt ?? ""),
         isWalkIn: Boolean(data.isWalkIn),
       });
+      setConfirmOpen(false);
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "簽到失敗");
@@ -271,6 +286,10 @@ export function SigninFlow() {
     : region && branch
       ? `${region.name} · ${branch.name}`
       : "";
+  const confirmName = walkIn ? `${nameZh} ${nameEn}`.trim() : person?.displayName ?? "";
+  const confirmRegion = walkIn ? walkRegion : region?.name ?? "";
+  const confirmBranch = walkIn ? walkBranchName : branch?.name ?? "";
+  const confirmMeal = MEAL_OPTIONS.find((option) => option.id === meal);
 
   return (
     <main className="signin-theme mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-8 pt-5">
@@ -529,11 +548,65 @@ export function SigninFlow() {
                 </button>
               ))}
             </div>
-            <Button size="lg" className="rounded-3xl" disabled={!meal || submitting} onClick={() => void submit()}>
-              {submitting ? "送出中…" : "送出"}
+            <Button size="lg" className="rounded-3xl" disabled={!meal || submitting} onClick={askToConfirm}>
+              送出
             </Button>
           </div>
         )}
+
+        <Dialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            if (!submitting) setConfirmOpen(open);
+          }}
+        >
+          <DialogContent className="signin-theme max-h-[90dvh] overflow-y-auto rounded-3xl border border-[#f3d5e4] bg-[#fff8fb] p-5 sm:p-6">
+            <DialogTitle className="text-xl">請確認您的簽到資料</DialogTitle>
+            <DialogDescription>請再看一下，沒問題再送出。</DialogDescription>
+            <dl className="mt-4 grid gap-3 text-base">
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-muted-foreground">姓名</dt>
+                <dd className="text-right font-semibold">{confirmName}</dd>
+              </div>
+              {confirmRegion ? (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-muted-foreground">區域</dt>
+                  <dd className="text-right font-semibold">{confirmRegion}</dd>
+                </div>
+              ) : null}
+              {confirmBranch ? (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-muted-foreground">分校</dt>
+                  <dd className="text-right font-semibold">{confirmBranch}</dd>
+                </div>
+              ) : null}
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-muted-foreground">便當</dt>
+                <dd className="text-right text-lg font-semibold">{confirmMeal?.label}</dd>
+              </div>
+            </dl>
+            {error ? (
+              <p className="mt-3 rounded-2xl bg-[#ffe8ea] px-3 py-2 text-sm text-[#9b3040]" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className="mt-5 grid gap-2">
+              <Button size="lg" className="w-full rounded-3xl" disabled={submitting} onClick={() => void submit()}>
+                {submitting ? "送出中…" : "確定送出"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full rounded-3xl"
+                disabled={submitting}
+                onClick={() => setConfirmOpen(false)}
+              >
+                返回修改
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {step === "done" && done && (
           <div className="rounded-[1.75rem] bg-white px-5 py-8 text-center shadow-sm ring-1 ring-[#f3d5e4]">

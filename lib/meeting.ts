@@ -34,3 +34,14 @@ export function formatTaipei(date: Date) {
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   return `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
 }
+
+export function formatTaipeiDate(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${Number(get("year"))}年${Number(get("month"))}月${Number(get("day"))}日`;
+}

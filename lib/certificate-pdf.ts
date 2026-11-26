@@ -3,7 +3,7 @@ import path from "path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { CertificateInput } from "./certificate-settings";
-import { formatTaipei } from "./meeting";
+import { formatTaipeiDate } from "./meeting";
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
@@ -150,8 +150,7 @@ export async function buildCertificatePdf(input: CertificatePdfInput) {
     bodyY -= 28;
   });
 
-  const signed = formatTaipei(input.signedAt);
-  page.drawText(`簽到時間：${signed}（台灣時間）`, {
+  page.drawText(`簽到日期：${formatTaipeiDate(input.signedAt)}`, {
     x: LEFT,
     y: bodyY - 16,
     size: 12,
