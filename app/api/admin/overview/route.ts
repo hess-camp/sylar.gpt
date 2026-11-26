@@ -50,7 +50,6 @@ export async function GET() {
       isWalkIn: item.isWalkIn,
       meal: item.meal,
       mealLabel: MEALS[item.meal],
-      email: item.email,
       signedAt: formatTaipei(item.signedAt),
       signatureUrl: signatureUrl(item.id, item.signatureKey),
     });

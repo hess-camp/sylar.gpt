@@ -26,13 +26,7 @@ type Done = {
   mealLabel: string;
   signedAt: string;
   isWalkIn: boolean;
-  emailNote: string;
 };
-
-function isOptionalEmail(value: string) {
-  if (!value) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
 
 const CUSTOM_BRANCH = "__custom__";
 
@@ -110,7 +104,6 @@ export function SigninFlow() {
   const [step, setStep] = useState<"pick" | "walkin" | "signature" | "meal" | "done">("pick");
   const [signature, setSignature] = useState<string | null>(null);
   const [meal, setMeal] = useState<"meat" | "veg" | "none" | null>(null);
-  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<Done | null>(null);
   const [notice, setNotice] = useState("");
@@ -151,7 +144,6 @@ export function SigninFlow() {
     setStep("pick");
     setSignature(null);
     setMeal(null);
-    setEmail("");
     setDone(null);
     setNotice("");
     void load();
@@ -223,11 +215,6 @@ export function SigninFlow() {
     } else if (!person) {
       return;
     }
-    const trimmedEmail = email.trim();
-    if (!isOptionalEmail(trimmedEmail)) {
-      setError("Email 格式看起來不太對，請再確認，或先留空");
-      return;
-    }
     setSubmitting(true);
     setError("");
     try {
@@ -241,13 +228,11 @@ export function SigninFlow() {
                 branch: walkBranchName,
                 nameZh,
                 nameEn,
-                email: trimmedEmail,
                 meal,
                 signature,
               }
             : {
                 attendeeId: person?.id,
-                email: trimmedEmail,
                 meal,
                 signature,
               },
@@ -261,7 +246,6 @@ export function SigninFlow() {
         mealLabel: String(data.mealLabel ?? ""),
         signedAt: String(data.signedAt ?? ""),
         isWalkIn: Boolean(data.isWalkIn),
-        emailNote: String(data.emailNote ?? ""),
       });
       setStep("done");
     } catch (err) {
@@ -528,22 +512,6 @@ export function SigninFlow() {
 
         {step === "meal" && (
           <div className="grid gap-3">
-            <label className="grid gap-2 rounded-3xl bg-white px-4 py-3 text-base font-medium ring-1 ring-[#f3d5e4]">
-              <span>
-                Email
-                <span className="ml-2 font-normal text-muted-foreground">選填，但很建議留下</span>
-              </span>
-              <Input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                className="h-14 rounded-3xl"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@example.com"
-              />
-              <span className="text-sm font-normal text-muted-foreground">簽到後會把出席證明寄到這個信箱</span>
-            </label>
             <p className="text-sm text-muted-foreground">選一個就好，沒有標準答案。</p>
             <div className="grid grid-cols-3 gap-2">
               {MEAL_OPTIONS.map((option) => (
@@ -577,7 +545,6 @@ export function SigninFlow() {
             <p className="mt-3 text-base">{done.signedAt}</p>
             <p className="text-sm text-muted-foreground">台灣時間 · 便當：{done.mealLabel}</p>
             <p className="mt-2 text-sm text-[#6d5274]">歡迎您出席，祝您今日收穫滿滿。</p>
-            {done.emailNote ? <p className="mt-2 text-sm text-[#6d5274]">{done.emailNote}</p> : null}
             {done.isWalkIn ? <p className="mt-2 text-sm">這次是當場報名</p> : null}
             {done.id ? <CertificateLink id={done.id} className="mt-6 w-full rounded-3xl" /> : null}
             <Button size="lg" className="mt-3 w-full rounded-3xl" onClick={reset}>

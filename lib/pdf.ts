@@ -37,7 +37,6 @@ export type PdfRow = {
   isWalkIn: boolean;
   meal: Meal;
   signatureKey: string;
-  email: string;
 };
 
 type Group = { region: string; rows: PdfRow[] };
@@ -310,25 +309,6 @@ function drawDataRow(
         size,
         font,
         color: TEXT,
-      });
-    } else if (index === 2 && row.email) {
-      const maxWidth = widths[index] - 12;
-      const fitted = fitLines(font, text, 9, maxWidth, 1);
-      const emailSize = 7;
-      const emailLine = fitLines(font, row.email, emailSize, maxWidth, 1).lines[0] ?? "";
-      page.drawText(fitted.lines[0] ?? "", {
-        x: x + 6,
-        y: bottom + ROW_H / 2 + 3,
-        size: fitted.size,
-        font,
-        color: TEXT,
-      });
-      page.drawText(emailLine, {
-        x: x + 6,
-        y: bottom + 8,
-        size: emailSize,
-        font,
-        color: rgb(0.35, 0.42, 0.52),
       });
     } else {
       const maxWidth = widths[index] - 12;
