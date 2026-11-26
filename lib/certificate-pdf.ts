@@ -44,16 +44,46 @@ function wrap(font: PDFFont, text: string, size: number, maxWidth: number) {
   return lines.length ? lines : [""];
 }
 
-function bodyLines(font: PDFFont, size: number, maxWidth: number) {
-  const lines = [
-    "茲證明貴校同仁因參與總處會議及相關教育訓練，",
-    "需於指定時間至總處出席，故無法於學校進行打卡。",
-    "特此證明，供相關單位查核。",
-  ];
-  if (lines.join("") !== CERTIFICATE_BODY) {
-    throw new Error("出席證明本文與分行不一致");
+function wrapFlow(font: PDFFont, text: string, size: number, fullWidth: number, indent: number) {
+  const lines: Array<{ text: string; indent: number; justify: boolean }> = [];
+  let rest = text;
+  let first = true;
+  while (rest) {
+    const maxWidth = first ? fullWidth - indent : fullWidth;
+    let line = "";
+    for (const char of rest) {
+      if (line && font.widthOfTextAtSize(line + char, size) > maxWidth) break;
+      line += char;
+    }
+    rest = rest.slice(line.length);
+    lines.push({ text: line, indent: first ? indent : 0, justify: rest.length > 0 });
+    first = false;
   }
-  return lines.flatMap((line) => wrap(font, line, size, maxWidth));
+  return lines;
+}
+
+function drawJustifiedLine(
+  page: PDFPage,
+  font: PDFFont,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  targetWidth: number,
+  justify: boolean,
+) {
+  const natural = [...text].reduce((sum, char) => sum + font.widthOfTextAtSize(char, size), 0);
+  const gap = text.length > 1 ? (targetWidth - natural) / (text.length - 1) : 0;
+  const evenEdges = justify || (text.length > 1 && gap > 0 && gap <= size * 0.25);
+  if (!evenEdges) {
+    page.drawText(text, { x, y, size, font, color: TEXT });
+    return;
+  }
+  let cursor = x;
+  for (const char of text) {
+    page.drawText(char, { x: cursor, y, size, font, color: TEXT });
+    cursor += font.widthOfTextAtSize(char, size) + gap;
+  }
 }
 
 function drawTracked(page: PDFPage, font: PDFFont, text: string, y: number, size: number, tracking: number) {
@@ -137,18 +167,23 @@ export async function buildCertificatePdf(input: CertificatePdfInput) {
 
   y -= 28;
   const bodySize = 14;
-  const lines = bodyLines(font, bodySize, RIGHT - LEFT - 28);
+  const fullWidth = RIGHT - LEFT;
+  const indent = font.widthOfTextAtSize("中中", bodySize);
+  const lines = wrapFlow(font, CERTIFICATE_BODY, bodySize, fullWidth, indent);
   let bodyY = y;
-  lines.forEach((line, index) => {
-    page.drawText(line, {
-      x: LEFT + (index === 0 ? 28 : 0),
-      y: bodyY,
-      size: bodySize,
+  for (const line of lines) {
+    drawJustifiedLine(
+      page,
       font,
-      color: TEXT,
-    });
+      line.text,
+      LEFT + line.indent,
+      bodyY,
+      bodySize,
+      fullWidth - line.indent,
+      line.justify,
+    );
     bodyY -= 28;
-  });
+  }
 
   page.drawText(`簽到日期：${formatTaipeiDate(input.signedAt)}`, {
     x: LEFT,
