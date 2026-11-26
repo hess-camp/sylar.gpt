@@ -544,7 +544,7 @@ export function SigninFlow() {
             <p className="mt-2 text-2xl font-semibold">{done.displayName}</p>
             <p className="mt-3 text-base">{done.signedAt}</p>
             <p className="text-sm text-muted-foreground">台灣時間 · 便當：{done.mealLabel}</p>
-            <p className="mt-2 text-sm text-[#6d5274]">謝謝你特地來一趟，路上小心。</p>
+            <p className="mt-2 text-sm text-[#6d5274]">歡迎您出席，祝您今日收穫滿滿。</p>
             {done.isWalkIn ? <p className="mt-2 text-sm">這次是當場報名</p> : null}
             {done.id ? <CertificateLink id={done.id} className="mt-6 w-full rounded-3xl" /> : null}
             <Button size="lg" className="mt-3 w-full rounded-3xl" onClick={reset}>
